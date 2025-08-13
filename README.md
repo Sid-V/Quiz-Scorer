@@ -1,3 +1,27 @@
+# Trivia Scoreboard
+
+This is a Next.js web application for tracking trivia event scores, integrated with Google Sheets for real-time updates.
+
+## Features
+- Score input via Google Sheet (8 teams)
+- Live updates on the website as the sheet changes
+- Sort teams by points or team number
+- View-by-question mode to see per-question scores
+
+## Setup
+1. Add your Google service account credentials to `credentials.json`.
+2. Set your sheet ID and range in `.env.local`.
+3. Make sure your Google Sheet is shared with the service account email.
+4. Run the app:
+
+```
+npm run dev
+```
+
+## Customization
+- Update the Google Sheet structure as needed (first column: team name, second: total points, rest: per-question scores).
+- UI is built with Tailwind CSS and can be easily customized.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
