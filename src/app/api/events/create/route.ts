@@ -116,8 +116,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 5. Store event for user in Firestore
+    const userEmail = session.user.email.trim().toLowerCase();
     await addDoc(collection(db, "events"), {
-      user: session.user.email,
+      user: userEmail,
       sheetId,
       sheetUrl,
       name: sheetName,

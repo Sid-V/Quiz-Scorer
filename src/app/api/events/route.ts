@@ -43,7 +43,7 @@ export async function GET(_req: NextRequest) {
   }
 
   if (!activeSheetId) {
-    return NextResponse.json({ error: 'No active sheet selected' }, { status: 400 });
+    return NextResponse.json({ events, activeSheetId: null });
   }
 
   return NextResponse.json({ events, activeSheetId });
@@ -57,14 +57,15 @@ export async function POST(req: NextRequest) {
   }
   const { sheetId } = await req.json();
   // Store active sheet for user in Firestore
-  const activeQ = query(collection(db, "activeSheets"), where("user", "==", session.user.email));
+  const userEmail = session.user.email.trim().toLowerCase();
+  const activeQ = query(collection(db, "activeSheets"), where("user", "==", userEmail));
   const activeSnap = await getDocs(activeQ);
   // If an active sheet exists, update it; else, add new
   if (!activeSnap.empty) {
     await updateDoc(activeSnap.docs[0].ref, { sheetId });
   } else {
     await addDoc(collection(db, "activeSheets"), {
-      user: session.user.email,
+      user: userEmail,
       sheetId,
     });
   }
