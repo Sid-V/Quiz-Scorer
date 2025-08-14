@@ -1,0 +1,123 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '../../auth/[...nextauth]/route';
+import { google } from 'googleapis';
+import fs from 'fs';
+
+const EVENTS_FILE = 'events.json';
+const TEMPLATE_SHEET_ID = '1f4BFKytD1mofgsv4P8lWEV3a7vwmvOkAskanos3ggUg';
+
+export async function POST(req: NextRequest) {
+  // Get user session
+  const session = await getServerSession(authOptions);
+  if (!session || !session.user || !session.user.email) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  const { accessToken } = session;
+  if (!accessToken) {
+    return NextResponse.json({ error: 'No Google access token' }, { status: 401 });
+  }
+
+  // Get event name from request body
+  const { name } = await req.json();
+  const sheetName = name || `TCQ Event - ${new Date().toLocaleString()}`;
+
+  // Programmatically create a new Google Sheet with the quiz structure
+  try {
+    const auth = new google.auth.OAuth2();
+    auth.setCredentials({ access_token: accessToken });
+    const sheets = google.sheets({ version: 'v4', auth });
+    const drive = google.drive({ version: 'v3', auth });
+
+    // 1. Create the new sheet
+    const createRes = await sheets.spreadsheets.create({
+      requestBody: {
+        properties: { title: sheetName },
+        sheets: [
+          {
+            properties: { title: 'Scorecard' },
+          },
+        ],
+      },
+    });
+    const sheetId = createRes.data.spreadsheetId;
+    const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
+
+    // 2. Prepare the values for the structure
+
+    // Prepare the values for the structure, with formulas in the Final Score row
+    const values = [
+      [
+        'Team Number', '# 1', '# 2', '# 3', '# 4', '# 5', '# 6', '# 7', '# 8'
+      ],
+      ['Team Names'],
+      ['Round 1'],
+      ['1'],
+      ['2'],
+      ['3'],
+      ['4'],
+      ['5'],
+      ['6'],
+      ['7'],
+      ['8'],
+      ['Round 2'],
+      ['1'],
+      ['2'],
+      ['3'],
+      ['4'],
+      ['5'],
+      ['6'],
+      ['7'],
+      ['8'],
+      [],
+      [
+        'Final Score',
+        '=SUM(B4:B20)',
+        '=SUM(C4:C20)',
+        '=SUM(D4:D20)',
+        '=SUM(E4:E20)',
+        '=SUM(F4:F20)',
+        '=SUM(G4:G20)',
+        '=SUM(H4:H20)',
+        '=SUM(I4:I20)'
+      ],
+    ];
+
+    // 3. Write the values to the sheet (formulas will be interpreted by Sheets)
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: sheetId!,
+      range: 'Scorecard!A1:I22',
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values,
+      },
+    });
+
+    // 4. Add permission: anyone with the link can view
+    try {
+      await drive.permissions.create({
+        fileId: sheetId!,
+        requestBody: {
+          type: 'anyone',
+          role: 'reader',
+        },
+      });
+    } catch (err) {
+      console.error('Failed to set public permission on sheet:', err);
+    }
+
+    // 5. Store event for user (demo: append to JSON file)
+    let events: Record<string, any[]> = {};
+    if (fs.existsSync(EVENTS_FILE)) {
+      events = JSON.parse(fs.readFileSync(EVENTS_FILE, 'utf8'));
+    }
+    if (!events[session.user.email]) events[session.user.email] = [];
+    events[session.user.email].push({ sheetId, sheetUrl, name: sheetName, created: new Date().toISOString() });
+    fs.writeFileSync(EVENTS_FILE, JSON.stringify(events, null, 2));
+
+    return NextResponse.json({ sheetId, sheetUrl });
+  } catch (err: any) {
+    console.error('Error creating sheet:', err);
+    return NextResponse.json({ error: err?.message || 'Failed to create event' }, { status: 500 });
+  }
+}
