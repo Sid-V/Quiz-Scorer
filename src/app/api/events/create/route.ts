@@ -16,12 +16,6 @@ const firebaseConfig = {
   appId: process.env.FIREBASE_APP_ID,
 };
 
-const missingVars = Object.entries(firebaseConfig)
-  .filter(([_, v]) => !v)
-  .map(([k]) => k);
-if (missingVars.length) {
-  throw new Error(`Missing Firebase env vars: ${missingVars.join(", ")}`);
-}
 const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
