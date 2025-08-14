@@ -3,35 +3,79 @@
 import Image from "next/image";
 import { useState, useMemo, useEffect } from "react";
 
+// Parse sheet given assumptions:
+// Row 0: team number headers or placeholders (first cell label, remaining columns correspond to teams)
+// Row 1: team names (may contain blanks). 4 <= teams < 12.
+// Rows 2..(Final Score row - 1): mixture of Round headers (contain 'round') and question rows (numeric or text in col 0).
+// A guaranteed 'Final Score' row exists (first cell includes 'Final Score'); its numeric columns hold total points per team.
+// We dynamically determine team count by scanning row 1 until an empty cell (after col 0) or max 11 teams.
 function parseSheetData(data: string[][]) {
-  if (!data || data.length < 2) return [];
-  const header = data[0];
-  const teamNamesRow = data[1];
+  if (!data || data.length < 3) return [];
+  const teamNumbersRow = data[0] || [];
+  const teamNamesRow = data[1] || [];
 
-  const finalScoreIdx = data.findIndex(row => (row[0] || '').toLowerCase().includes('final score'));
-  const lastRowIdx = finalScoreIdx !== -1 ? finalScoreIdx : data.length;
-  const questionRows = data
-    .slice(2, lastRowIdx)
-    .filter(row => row[0] && !row[0].toLowerCase().includes('round'));
+  // Locate final score row (guaranteed by requirements)
+  const finalScoreIdx = data.findIndex(row => (row?.[0] || '').toLowerCase().includes('final score'));
+  if (finalScoreIdx === -1) return []; // safeguard, though guaranteed
 
-  const numTeams = (header?.length || 1) - 1;
-  if (numTeams <= 0) return [];
+  // Determine team count: scan names row starting col 1 until blank or limit
+  let teamCount = 0;
+  for (let c = 1; c < teamNamesRow.length && teamCount < 11; c++) {
+    const val = (teamNamesRow[c] || '').trim();
+    if (!val && teamCount >= 4) break; // allow trailing blanks after minimum teams
+    if (!val && teamCount < 4) {
+      // If early blanks but we still haven't reached min 4, treat as placeholder team
+      teamCount++;
+      continue;
+    }
+    teamCount++;
+  }
+  // Fallback to header length - 1 if names row was shorter
+  if (teamCount < 4) teamCount = Math.min(Math.max((teamNumbersRow.length - 1) || 0, 4), 11);
 
-  const teams = Array.from({ length: numTeams }).map((_, idx) => {
-    const rawName = teamNamesRow?.[idx + 1]?.trim();
-    const teamName = rawName || `Team ${idx + 1}`;
-    const scores = questionRows.map(row => Number(row[idx + 1]) || 0);
-    const points = finalScoreIdx !== -1
-      ? Number(data[finalScoreIdx][idx + 1]) || 0
-      : scores.reduce((a, b) => a + b, 0);
+  // Collect question rows between row 2 and final score row, excluding round headers & empty rows
+  const questionRows: string[][] = [];
+  for (let r = 2; r < finalScoreIdx; r++) {
+    const row = data[r];
+    if (!row || row.length === 0) continue;
+    const first = (row[0] || '').trim().toLowerCase();
+    if (!first) continue;
+    if (first.includes('round')) continue; // skip round header
+    if (first.includes('final score')) continue; // defensive
+    questionRows.push(row);
+  }
+
+  // Build team objects
+  const teams = Array.from({ length: teamCount }).map((_, idx) => {
+    const name = (teamNamesRow[idx + 1] || '').trim() || `Team ${idx + 1}`;
+    const scores = questionRows.map(row => {
+      const cell = row[idx + 1];
+      const num = Number(cell);
+      return isNaN(num) ? 0 : num;
+    });
+    const finalRow = data[finalScoreIdx] || [];
+    const finalValRaw = finalRow[idx + 1];
+    const finalValNum = Number(finalValRaw);
+    const points = !isNaN(finalValNum) ? finalValNum : scores.reduce((a, b) => a + b, 0);
     return {
-      team: teamName,
+      team: name,
       teamNum: idx + 1,
       scores,
       points,
     };
   });
   return teams;
+}
+
+// Dynamically pick a font-size class for varying team name lengths so they fit in tiles & table.
+function teamNameSizeClass(name: string) {
+  const len = name.length;
+  if (len <= 10) return "text-3xl";      // very short
+  if (len <= 14) return "text-2xl";
+  if (len <= 20) return "text-xl";
+  if (len <= 28) return "text-lg";
+  if (len <= 36) return "text-base";
+  return "text-sm"; // very long names
 }
 
 export default function Home() {
@@ -87,12 +131,12 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Poll every 20 seconds for updated sheet data (if a sheet is loaded)
+  // Poll every 30 seconds for updated sheet data (if a sheet is loaded)
   useEffect(() => {
     if (!sheetId) return; // nothing to poll yet
     const interval = setInterval(() => {
       fetchSheetData(sheetId);
-    }, 20000); // 20s
+    }, 30000); // 30s
     return () => clearInterval(interval);
   }, [sheetId]);
 
@@ -165,7 +209,13 @@ export default function Home() {
                             👑
                           </span>
                         )}
-                        <div className="text-2xl sm:text-3xl font-extrabold mb-2 break-words text-center max-w-xs w-full" style={{wordBreak:'break-word'}}>{team.team}</div>
+                        <div
+                          className={`${teamNameSizeClass(team.team)} font-extrabold mb-2 break-words text-center max-w-xs w-full leading-tight`}
+                          style={{ wordBreak: 'break-word', hyphens: 'auto' }}
+                          title={team.team}
+                        >
+                          {team.team}
+                        </div>
                         <div className="text-lg font-semibold mb-2">Team #{team.teamNum}</div>
                         <div className="text-5xl font-black mt-2">{team.points}</div>
                       </div>
@@ -187,7 +237,20 @@ export default function Home() {
                   <tbody>
                     {sortedTeams.map((team, i) => (
                       <tr key={team.teamNum} className={i % 2 ? "bg-blue-50" : "bg-white"}>
-                        <td className="px-6 py-4 font-bold">{team.team} (#{team.teamNum})</td>
+                        <td className="px-6 py-4 font-bold align-top w-[14rem] md:w-[18rem] lg:w-[20rem]">
+                          <span
+                            className={`${teamNameSizeClass(team.team)} block leading-snug break-words`}
+                            style={{
+                              wordBreak: 'break-word',
+                              hyphens: 'auto',
+                              fontSize: `clamp(0.75rem, ${Math.max(1.2, 18 / Math.max(team.team.length, 8)).toFixed(2)}rem, 1.5rem)`
+                            }}
+                            title={team.team}
+                          >
+                            {team.team}
+                          </span>
+                          <span className="text-xs md:text-sm font-semibold text-blue-700">#{team.teamNum}</span>
+                        </td>
                         {team.scores.map((score: number, qIdx: number) => (
                           <td key={qIdx} className="px-4 py-4 text-center font-bold">
                             {score}

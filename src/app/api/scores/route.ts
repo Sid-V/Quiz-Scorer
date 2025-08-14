@@ -2,30 +2,21 @@ import { google } from 'googleapis';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '../auth/authOptions';
+
 const SHEET_RANGE = 'A1:I100';
 
-// Import service account credentials (kept server-side only)
-// Using require to avoid bundling JSON on client; this file runs only on server.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const credentials = require('../../../../credentials.json');
-
-async function getSheetData(sheetId: string) {
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/spreadsheets.readonly', 'https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/userinfo.email', 'openid', 'profile'],
-  });
-  const sheets = google.sheets({ version: 'v4', auth });
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: SHEET_RANGE,
-  });
+async function getSheetData(sheetId: string, accessToken: string) {
+  // Use the signed-in user's short-lived access token (read-only scope granted in authOptions)
+  const oauth2 = new google.auth.OAuth2();
+  oauth2.setCredentials({ access_token: accessToken });
+  const sheets = google.sheets({ version: 'v4', auth: oauth2 });
+  const res = await sheets.spreadsheets.values.get({ spreadsheetId: sheetId, range: SHEET_RANGE });
   return res.data.values;
 }
 
 export async function GET(req: NextRequest) {
-  // Ensure user is authenticated (still required to use the endpoint)
   const session = await getServerSession(authOptions);
-  if (!session) {
+  if (!session || !(session as any).accessToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -36,7 +27,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const data = await getSheetData(sheetId);
+  const data = await getSheetData(sheetId, (session as any).accessToken as string);
     return NextResponse.json({ data });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
