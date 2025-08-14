@@ -24,8 +24,10 @@ export async function GET(_req: NextRequest) {
   if (!session || !session.user || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
+  const userEmail = session.user.email.trim().toLowerCase();
+
   // Get events for user from Firestore
-  const q = query(collection(db, "events"), where("user", "==", session.user.email));
+  const q = query(collection(db, "events"), where("user", "==", userEmail));
   const snapshot = await getDocs(q);
   const events: any[] = [];
   snapshot.forEach(doc => {
@@ -33,12 +35,16 @@ export async function GET(_req: NextRequest) {
   });
 
   // Get active sheet for user from Firestore
-  const activeQ = query(collection(db, "activeSheets"), where("user", "==", session.user.email));
+  const activeQ = query(collection(db, "activeSheets"), where("user", "==", userEmail));
   const activeSnap = await getDocs(activeQ);
   let activeSheetId: string | null = null;
-  activeSnap.forEach(doc => {
-    activeSheetId = doc.data().sheetId;
-  });
+  if (!activeSnap.empty) {
+    activeSheetId = activeSnap.docs[0].data().sheetId;
+  }
+
+  if (!activeSheetId) {
+    return NextResponse.json({ error: 'No active sheet selected' }, { status: 400 });
+  }
 
   return NextResponse.json({ events, activeSheetId });
 }
