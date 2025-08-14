@@ -79,13 +79,13 @@ export default function Home() {
     <div className="font-sans min-h-screen p-0 m-0 bg-gradient-to-br from-blue-100 via-blue-200 to-blue-400 text-black flex flex-col min-h-screen justify-between">
       <div>
         <header className="w-full flex flex-col items-center bg-blue-700 text-white shadow-lg py-6">
-          <div className="w-full flex flex-row items-center justify-between px-12 py-2">
+            <div className="w-full flex flex-row items-center justify-between px-12 py-2">
             <div className="flex flex-col">
               <span className="text-4xl font-extrabold tracking-widest">The Curiosity Quotient</span>
               <span className="text-lg font-bold tracking-widest mt-2">SCORECARD</span>
             </div>
-            <img src="/tcq_logo.png" alt="TCQ Logo" className="h-32 w-auto" />
-          </div>
+            <Image src="/tcq_logo.png" alt="TCQ Logo" className="h-32 w-auto" width={128} height={128}/>
+            </div>
         </header>
         <main className="flex flex-col items-center w-full px-4 py-12">
           <h1 className="text-5xl font-extrabold mb-10 text-blue-900 drop-shadow">Scorecard</h1>

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]/route';
+import { authOptions } from '../../auth/authOptions';
 import { google } from 'googleapis';
 import fs from 'fs';
 
 const EVENTS_FILE = 'events.json';
-const TEMPLATE_SHEET_ID = '1f4BFKytD1mofgsv4P8lWEV3a7vwmvOkAskanos3ggUg';
 
 export async function POST(req: NextRequest) {
   // Get user session
@@ -13,17 +12,14 @@ export async function POST(req: NextRequest) {
   if (!session || !session.user || !session.user.email) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const { accessToken } = session;
-  if (!accessToken) {
-    return NextResponse.json({ error: 'No Google access token' }, { status: 401 });
-  }
-
-  // Get event name from request body
-  const { name } = await req.json();
-  const sheetName = name || `TCQ Event - ${new Date().toLocaleString()}`;
-
-  // Programmatically create a new Google Sheet with the quiz structure
   try {
+    // Parse request body for sheetName
+    const { sheetName } = await req.json();
+    // Get access token from session
+    const accessToken = (session as Record<string, any>).accessToken || (session.user as Record<string, any>).accessToken;
+    if (!accessToken) {
+      return NextResponse.json({ error: 'No access token found in session' }, { status: 401 });
+    }
     const auth = new google.auth.OAuth2();
     auth.setCredentials({ access_token: accessToken });
     const sheets = google.sheets({ version: 'v4', auth });
@@ -44,9 +40,7 @@ export async function POST(req: NextRequest) {
     const sheetUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/edit`;
 
     // 2. Prepare the values for the structure
-
-    // Prepare the values for the structure, with formulas in the Final Score row
-    const values = [
+    const values: (string | number)[][] = [
       [
         'Team Number', '# 1', '# 2', '# 3', '# 4', '# 5', '# 6', '# 7', '# 8'
       ],
@@ -102,22 +96,22 @@ export async function POST(req: NextRequest) {
           role: 'reader',
         },
       });
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Failed to set public permission on sheet:', err);
     }
 
     // 5. Store event for user (demo: append to JSON file)
-    let events: Record<string, any[]> = {};
+  let events: Record<string, any[]> = {};
     if (fs.existsSync(EVENTS_FILE)) {
       events = JSON.parse(fs.readFileSync(EVENTS_FILE, 'utf8'));
     }
-    if (!events[session.user.email]) events[session.user.email] = [];
-    events[session.user.email].push({ sheetId, sheetUrl, name: sheetName, created: new Date().toISOString() });
+  if (!events[session.user.email]) events[session.user.email] = [];
+  events[session.user.email].push({ sheetId, sheetUrl, name: sheetName, created: new Date().toISOString() });
     fs.writeFileSync(EVENTS_FILE, JSON.stringify(events, null, 2));
 
     return NextResponse.json({ sheetId, sheetUrl });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error creating sheet:', err);
-    return NextResponse.json({ error: err?.message || 'Failed to create event' }, { status: 500 });
+    return NextResponse.json({ error: (err as Error)?.message || 'Failed to create event' }, { status: 500 });
   }
 }

@@ -2,10 +2,10 @@ import { google } from 'googleapis';
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]/route';
+import { authOptions } from '../auth/authOptions';
 
 const ACTIVE_FILE = 'active_sheet.json';
-const SHEET_RANGE = process.env.GOOGLE_SHEET_RANGE || 'A1:I100';
+const SHEET_RANGE = 'A1:I100';
 
 async function getSheetData(sheetId: string) {
   const credentials = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
