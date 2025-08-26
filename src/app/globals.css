@@ -3,10 +3,110 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Quiz Scorer Theme Colors */
+  --color-primary: #542b31;
+  --color-secondary: #2b544e;
+  --color-accent: #654046;
+  --color-neutral: #876b6f;
+  --color-gold: #FFD700;
+  --color-gold-border: #E6C200;
+  --color-silver: #C4C4C4;
+  --color-silver-border: #A8A8A8;
+  --color-bronze: #CE8946;
+  --color-bronze-border: #B5763A;
+  /* Gradients */
+  --gradient-background: linear-gradient(to bottom right, #f0f0f0, #e0e0e0, #d0d0d0);
+  /* Shadows */
+  --shadow-podium: 0 25px 50px -12px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
+}
+
+/* Utility Classes */
+.quiz-gradient {
+  background: var(--gradient-background);
+}
+
+.quiz-primary {
+  background-color: var(--color-primary);
+}
+
+.quiz-secondary {
+  background-color: var(--color-secondary);
+}
+
+.quiz-accent {
+  background-color: var(--color-accent);
+}
+
+.quiz-neutral {
+  background-color: var(--color-neutral);
+}
+
+.quiz-text-primary {
+  color: var(--color-primary);
+}
+
+.quiz-text-secondary {
+  color: var(--color-secondary);
+}
+
+.quiz-border-primary {
+  border-color: var(--color-primary);
+}
+
+.quiz-border-neutral {
+  border-color: var(--color-neutral);
+}
+
+/* Podium Styles */
+.podium-gold {
+  background-color: var(--color-gold);
+  border-color: var(--color-gold-border);
+  box-shadow: var(--shadow-podium) rgba(255, 215, 0, 0.4);
+}
+
+.podium-silver {
+  background-color: var(--color-silver);
+  border-color: var(--color-silver-border);
+  box-shadow: var(--shadow-podium) rgba(196, 196, 196, 0.4);
+}
+
+.podium-bronze {
+  background-color: var(--color-bronze);
+  border-color: var(--color-bronze-border);
+  box-shadow: var(--shadow-podium) rgba(206, 137, 70, 0.4);
+}
+
+/* Button Styles */
+.quiz-button {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  transition: all 0.2s ease-in-out;
+}
+
+.quiz-button:hover {
+  opacity: 0.8;
+}
+
+.quiz-button-active {
+  background-color: var(--color-accent);
+  color: white;
+}
+
+.quiz-button-inactive {
+  background-color: var(--color-neutral);
+  color: var(--color-primary);
+}
+
+.quiz-button-secondary-active {
+  background-color: var(--color-secondary);
+  color: white;
 }
