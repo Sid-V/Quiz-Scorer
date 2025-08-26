@@ -6,11 +6,9 @@ interface ScoreTableProps {
 }
 
 export const ScoreTable = memo<ScoreTableProps>(({ teams }) => {
-  if (!teams.length) return null;
-
   // Memoize expensive computations
   const questionData = useMemo(() => {
-    if (!teams[0]) return [];
+    if (!teams.length || !teams[0]) return [];
 
     return teams[0].scores.map((_, qIdx) => {
       const roundNum = teams[0]?.questionRounds?.[qIdx] || "1";
@@ -18,6 +16,8 @@ export const ScoreTable = memo<ScoreTableProps>(({ teams }) => {
       return { qIdx, roundNum, questionsInRound };
     });
   }, [teams]);
+
+  if (!teams.length) return null;
 
   return (
     <table className="w-full max-w-7xl text-2xl rounded-2xl overflow-hidden shadow-2xl bg-white border quiz-border-neutral">
