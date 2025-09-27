@@ -11,6 +11,15 @@ export interface Team {
 export interface ApiResponse {
   data?: string[][];
   error?: string;
+  code?: string;
+}
+
+export interface ExtendedApiResponse extends ApiResponse {
+  authenticated?: boolean;
+  user?: {
+    name?: string | null;
+    email?: string | null;
+  };
 }
 
 export type SortOption = "points" | "teamNum";

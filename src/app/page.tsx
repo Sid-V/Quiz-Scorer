@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useSheetData, useTeamSorting } from "../hooks/useSheetData";
 import { useSheetPrompt } from "../hooks/useSheetPrompt";
 import { Header } from "../components/Header";
@@ -18,6 +19,7 @@ export default function Home() {
     teams,
     loading,
     error,
+    authError,
     fetchSheetData,
     setError,
   } = useSheetData();
@@ -47,7 +49,26 @@ export default function Home() {
             Scorecard
           </h1>
 
-          {error && (
+          {authError ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6 max-w-md mx-auto text-center">
+              <div className="text-red-600 font-semibold mb-2">Authentication Required</div>
+              <p className="text-red-700 mb-4">{error}</p>
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={() => signIn('google')}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                >
+                  Sign In Again
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded transition-colors"
+                >
+                  Refresh Page
+                </button>
+              </div>
+            </div>
+          ) : error && (
             <ErrorDisplay
               error={error}
               onRetry={() => {

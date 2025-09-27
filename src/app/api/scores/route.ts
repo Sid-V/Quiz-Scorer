@@ -16,10 +16,31 @@ async function getSheetData(sheetId: string, accessToken: string) {
   return res.data.values;
 }
 
+function isTokenExpiredError(error: any): boolean {
+  return (
+    error?.code === 401 ||
+    error?.message?.includes('Invalid Credentials') ||
+    error?.message?.includes('Request had invalid authentication credentials') ||
+    error?.message?.includes('Access blocked')
+  );
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!session || !(session as any).accessToken) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!session) {
+    return NextResponse.json({ error: 'No active session' }, { status: 401 });
+  }
+
+  if (!(session as any).accessToken) {
+    return NextResponse.json({ error: 'No access token available' }, { status: 401 });
+  }
+
+  // Check if there's a token refresh error
+  if ((session as any).error === 'RefreshAccessTokenError') {
+    return NextResponse.json({ 
+      error: 'Authentication expired. Please sign in again.',
+      code: 'AUTH_EXPIRED'
+    }, { status: 401 });
   }
 
   const { searchParams } = new URL(req.url);
@@ -32,6 +53,14 @@ export async function GET(req: NextRequest) {
     const data = await getSheetData(sheetId, (session as any).accessToken as string);
     return NextResponse.json({ data });
   } catch (error) {
+    // Handle token expiration gracefully
+    if (isTokenExpiredError(error)) {
+      return NextResponse.json({ 
+        error: 'Authentication expired. Please refresh the page or sign in again.',
+        code: 'AUTH_EXPIRED'
+      }, { status: 401 });
+    }
+    
     const message = error instanceof Error ? error.message : String(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
