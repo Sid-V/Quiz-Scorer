@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import { Team, SortOption, ApiResponse } from '../lib/types';
 import { parseSheetData, extractSheetId } from '../lib/sheetParser';
 import { CONFIG } from '../lib/constants';
@@ -7,6 +8,9 @@ import { CONFIG } from '../lib/constants';
  * Custom hook for managing sheet data and operations
  */
 export function useSheetData() {
+  const { data: session, status } = useSession();
+  const isAuthenticated = status === 'authenticated' && !!session;
+
   const [sheetId, setSheetId] = useState<string>("");
   const [sheetData, setSheetData] = useState<string[][]>([]);
   const [loading, setLoading] = useState(false);
@@ -20,6 +24,13 @@ export function useSheetData() {
 
   // Enhanced fetch with better error handling
   const fetchSheetData = useCallback(async (urlOrId: string, isRetry: boolean = false) => {
+    // Don't fetch if not authenticated
+    if (!isAuthenticated) {
+      setAuthError(true);
+      setError('Authentication required. Please sign in to access the scorecard.');
+      return;
+    }
+
     const extractedId = extractSheetId(urlOrId);
     if (!extractedId) {
       setError("Invalid Google Sheets URL or ID");
@@ -78,30 +89,41 @@ export function useSheetData() {
     } finally {
       setLoading(false);
     }
-  }, [authError, maxRetries]);
+  }, [isAuthenticated, authError, maxRetries]);
 
-  // Load sheet ID from URL on mount
+  // Load sheet ID from URL on mount (only when authenticated)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!isAuthenticated) return; // Don't auto-load if not authenticated
+    
     const params = new URLSearchParams(window.location.search);
     const id = params.get('sheetId');
     if (id && !sheetData.length && !loading) {
       fetchSheetData(id);
     }
-  }, [fetchSheetData, sheetData.length, loading]);
+  }, [fetchSheetData, sheetData.length, loading, isAuthenticated]);
 
-  // Poll for updates when sheet is loaded (with auth error handling)
+  // Poll for updates when sheet is loaded (with auth check)
   useEffect(() => {
-    if (!sheetId || authError) return;
+    // Stop polling if not authenticated or if there's an auth error
+    if (!sheetId || authError || !isAuthenticated) return;
     
     const interval = setInterval(() => {
-      if (!authError) {
+      if (isAuthenticated && !authError) {
         fetchSheetData(sheetId);
       }
     }, CONFIG.POLLING_INTERVAL);
     
     return () => clearInterval(interval);
-  }, [sheetId, fetchSheetData, authError]);
+  }, [sheetId, fetchSheetData, authError, isAuthenticated]);
+
+  // Clear auth error when user logs back in
+  useEffect(() => {
+    if (isAuthenticated && authError) {
+      setAuthError(false);
+      setError("");
+    }
+  }, [isAuthenticated, authError]);
 
   return {
     teams,
